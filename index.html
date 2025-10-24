@@ -68,7 +68,7 @@ footer { text-align:center; background:#ffe0b2; padding:10px; margin-top:20px; }
 <option>Jewelry</option>
 <option>Other</option>
 </select>
-<input type="hidden" id="editIndex">
+<input type="hidden" id="editId">
 <button type="submit">Save Product</button>
 </form>
 </section>
@@ -109,6 +109,7 @@ footer { text-align:center; background:#ffe0b2; padding:10px; margin-top:20px; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-analytics.js";
+import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAxo8Yh-uo0ganIbb8A9lTswNuU3fJ1SWw",
@@ -123,6 +124,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
+const db = getDatabase();
 
 const tabs = document.querySelectorAll('.tab-btn');
 const sections = document.querySelectorAll('section');
@@ -143,13 +145,12 @@ const priceInput = document.getElementById('price');
 const phoneInput = document.getElementById('phone');
 const imageInput = document.getElementById('imageUpload');
 const categoryInput = document.getElementById('category');
-const editIndexInput = document.getElementById('editIndex');
+const editIdInput = document.getElementById('editId');
 const searchInput = document.getElementById('searchInput');
 const categoryFilter = document.getElementById('categoryFilter');
 const featured = document.getElementById('featured');
 
-let products = [];
-try { products = JSON.parse(localStorage.getItem('products')) || []; } catch(e){ products = []; }
+let products = {};
 
 function generateBio(name, artisan, category) {
   const templates = [
@@ -167,7 +168,9 @@ function displayProducts() {
   let cat = categoryFilter.value;
   productList.innerHTML='';
 
-  products.forEach((p,index)=>{
+  const keys = Object.keys(products);
+  keys.forEach(id => {
+    const p = products[id];
     if((p.name.toLowerCase().includes(search) || p.artisan.toLowerCase().includes(search)) && (cat==''||p.category==cat)){
       const card=document.createElement('div');
       card.classList.add('card');
@@ -184,13 +187,14 @@ function displayProducts() {
         <button class="contact">Contact</button>
       `;
       productList.appendChild(card);
+
       const imgEl = card.querySelector('img');
       imgEl.addEventListener('click',()=>{ openModal(p.name,p.bio||generateBio(p.name,p.artisan,p.category)); });
 
       card.querySelector('.favorite').addEventListener('click',(e)=>{
         e.stopPropagation();
-        p.favorite=!p.favorite;
-        saveAndDisplay();
+        const favRef = ref(db, 'products/'+id);
+        update(favRef, {favorite: !p.favorite});
       });
 
       card.querySelector('.edit').addEventListener('click',(e)=>{
@@ -200,15 +204,14 @@ function displayProducts() {
         priceInput.value=p.price;
         phoneInput.value=p.phone;
         categoryInput.value=p.category;
-        editIndexInput.value=index;
+        editIdInput.value=id;
         document.querySelector('[data-tab="add"]').click();
       });
 
       card.querySelector('.delete').addEventListener('click',(e)=>{
         e.stopPropagation();
         if(confirm(`Delete "${p.name}"?`)){
-          products.splice(index,1);
-          saveAndDisplay();
+          remove(ref(db,'products/'+id));
         }
       });
 
@@ -219,39 +222,20 @@ function displayProducts() {
     }
   });
 
-  if(products.length>0){
-    let f=products[Math.floor(Math.random()*products.length)];
+  if(keys.length>0){
+    let randKey = keys[Math.floor(Math.random()*keys.length)];
+    const f = products[randKey];
     featured.innerText=`${f.name} by ${f.artisan} - ${f.category}`;
   }else featured.innerText='No products yet.';
-}
-
-function saveAndDisplay(){
-  localStorage.setItem('products',JSON.stringify(products));
-  displayProducts();
 }
 
 form.addEventListener('submit',e=>{
   e.preventDefault();
   const file = imageInput.files[0];
-  const editIndex = editIndexInput.value;
-  if(editIndex !== '' && !file){
-    products[editIndex].name=nameInput.value;
-    products[editIndex].artisan=artisanInput.value;
-    products[editIndex].price=priceInput.value;
-    products[editIndex].phone=phoneInput.value;
-    products[editIndex].category=categoryInput.value;
-    products[editIndex].bio=generateBio(nameInput.value, artisanInput.value, categoryInput.value);
-    saveAndDisplay();
-    form.reset(); editIndexInput.value=''; 
-    document.querySelector('[data-tab="view"]').click();
-    return;
-  }
+  const editId = editIdInput.value;
 
-  if(!file){ alert("Please select an image."); return; }
-  const reader = new FileReader();
-  reader.onload=function(){
-    const base64Image = reader.result;
-    const newProduct = {
+  const saveProduct = (base64Image)=>{
+    const data = {
       name:nameInput.value,
       artisan:artisanInput.value,
       price:priceInput.value,
@@ -261,13 +245,22 @@ form.addEventListener('submit',e=>{
       bio:generateBio(nameInput.value, artisanInput.value, categoryInput.value),
       favorite:false
     };
-    if(editIndex===''){ products.push(newProduct); } 
-    else { products[editIndex]=newProduct; }
-    saveAndDisplay();
-    form.reset(); editIndexInput.value='';
+    if(editId){
+      update(ref(db,'products/'+editId), data);
+    } else {
+      push(ref(db,'products'), data);
+    }
+    form.reset();
+    editIdInput.value='';
     document.querySelector('[data-tab="view"]').click();
   };
-  reader.readAsDataURL(file);
+
+  if(!file && !editId){ alert("Please select an image."); return; }
+  if(file){
+    const reader = new FileReader();
+    reader.onload = ()=>{ saveProduct(reader.result); };
+    reader.readAsDataURL(file);
+  } else { saveProduct(products[editId].image); }
 });
 
 searchInput.addEventListener('input',displayProducts);
@@ -276,9 +269,17 @@ categoryFilter.addEventListener('change',displayProducts);
 const modal=document.getElementById('bioModal');
 function openModal(title,bio){ document.getElementById('modalTitle').innerText=title; document.getElementById('modalBio').innerText=bio; modal.style.display='flex'; }
 function closeModal(){modal.style.display='none';}
-displayProducts();
+
+// Listen to Firebase database changes
+onValue(ref(db,'products'), snapshot=>{
+  products = snapshot.val() || {};
+  displayProducts();
+});
 </script>
 </body>
 </html>
+``
+
+
 
 
