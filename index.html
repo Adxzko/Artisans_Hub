@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Artisan Hub</title>
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#fff8f0; }
+header { background:#ff6f00; color:white; padding:1rem; text-align:center; }
+nav { display:flex; background:#ffcc80; justify-content:center; gap:10px; padding:10px; }
+nav button { padding:10px 20px; border:none; background:#ffb74d; color:white; cursor:pointer; border-radius:5px; }
+nav button.active { background:#ff6f00; }
+section { display:none; padding:20px; }
+section.active { display:block; }
+form input, form select, form button { display:block; width:100%; padding:10px; margin:5px 0; }
+.products { display:flex; flex-wrap:wrap; gap:15px; margin-top:20px; justify-content:center; }
+.card { background:#fff; border:1px solid #ddd; border-radius:8px; padding:10px; width:200px; cursor:pointer; transition: transform 0.2s; position:relative; }
+.card:hover { transform:translateY(-5px); }
+.card img { width:100%; height:150px; object-fit:cover; border-radius:5px; }
+.card button { position:absolute; padding:3px 6px; border:none; border-radius:3px; cursor:pointer; }
+.card .edit { background:#4caf50; color:white; top:5px; right:45px; }
+.card .delete { background:#f44336; color:white; top:5px; right:5px; }
+.card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  margin: 15px;
+  width: 250px;
+  text-align: center;
+  display: inline-block;
+  vertical-align: top;
+  transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+.card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.card button {
+  padding: 8px 12px;
+  margin: 6px 4px;       /* adds spacing between buttons */
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 14px;
+  transition: 0.2s;
+}
+
+.card button.edit {
+  background: #4CAF50;   /* green */
+}
+
+.card button.delete {
+  background: #f44336;   /* red */
+}
+
+.card button:hover {
+  opacity: 0.85;
+}
+
+.card .favorite { background:#ff4081; color:white; top:5px; left:5px; }
+footer { text-align:center; background:#ffe0b2; padding:10px; margin-top:20px; }
+.modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; }
+.modal-content { background:white; padding:20px; border-radius:8px; max-width:500px; text-align:center; }
+.modal-content h3 { margin-top:0; }
+.modal-close { cursor:pointer; padding:5px 10px; background:#ff6f00; color:white; border:none; border-radius:5px; margin-top:10px; }
+#filterBar { display:flex; justify-content:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+#filterBar input, #filterBar select { width:auto; }
+</style>
+</head>
+<body>
+
+<header>
+<h1>Artisan Hub</h1>
+</header>
+
+<nav>
+<button class="tab-btn active" data-tab="home">Home</button>
+<button class="tab-btn" data-tab="add">Add Product</button>
+<button class="tab-btn" data-tab="view">View Products</button>
+<button class="tab-btn" data-tab="about">About</button>
+</nav>
+
+<section id="home" class="active">
+<h2>Welcome to Our WEBSITE</h2>
+<p>Support local artisans by promoting their handmade products.</p>
+<p>Featured product of the day:</p>
+<div id="featured" style="text-align:center; font-style:bold;"></div>
+</section>
+
+<section id="add">
+<h2>Add or Edit Product</h2>
+<form id="productForm">
+<input type="text" id="name" placeholder="Product Name" required>
+<input type="text" id="artisan" placeholder="Artisan Name" required>
+<input type="number" id="price" placeholder="Price in ₹" required>
+<input type="file" id="imageUpload" accept="image/*">
+<select id="category" required>
+<option value="">Select Category</option>
+<option>Silk</option>
+<option>Bamboo</option>
+<option>Pottery</option>
+<option>Jewelry</option>
+<option>Other</option>
+</select>
+<input type="hidden" id="editIndex">
+<button type="submit">Save Product</button>
+</form>
+</section>
+
+<section id="view">
+<h2>Product Gallery</h2>
+<div id="filterBar">
+<input type="text" id="searchInput" placeholder="Search by name or artisan">
+<select id="categoryFilter">
+<option value="">All Categories</option>
+<option>Silk</option>
+<option>Bamboo</option>
+<option>Pottery</option>
+<option>Jewelry</option>
+<option>Other</option>
+</select>
+</div>
+<div class="products" id="productList"></div>
+</section>
+
+<section id="about">
+<h2>About</h2>
+<p>This is a prototype platform to showcase and promote local artisans and their crafts. You can add products, view others’ products, edit, delete, filter, and favorite products.This Platform provides a connection between Buyers and sellers.</p>
+</section>
+
+<div class="modal" id="bioModal">
+<div class="modal-content">
+<h3 id="modalTitle"></h3>
+<p id="modalBio"></p>
+<button class="modal-close" onclick="closeModal()">Close</button>
+</div>
+</div>
+
+<footer>
+&copy; 2025 A Project based on The theme "Vocal for local" under BUILDATHON
+</footer>
+
+<script>
+const tabs = document.querySelectorAll('.tab-btn');
+const sections = document.querySelectorAll('section');
+tabs.forEach(tab => {
+tab.addEventListener('click', () => {
+tabs.forEach(t=>t.classList.remove('active'));
+sections.forEach(s=>s.classList.remove('active'));
+tab.classList.add('active');
+document.getElementById(tab.dataset.tab).classList.add('active');
+});
+});
+const form = document.getElementById('productForm');
+const productList = document.getElementById('productList');
+const nameInput = document.getElementById('name');
+const artisanInput = document.getElementById('artisan');
+const priceInput = document.getElementById('price');
+const imageInput = document.getElementById('imageUpload');
+const categoryInput = document.getElementById('category');
+const editIndexInput = document.getElementById('editIndex');
+const searchInput = document.getElementById('searchInput');
+const categoryFilter = document.getElementById('categoryFilter');
+const featured = document.getElementById('featured');
+let products = [];
+try { products = JSON.parse(localStorage.getItem('products')) || []; } catch(e){ products = []; }
+function generateBio(name, artisan, category) {
+  const templates = [
+    `${name} is a beautifully handcrafted ${category} made with passion by ${artisan}, reflecting the heart of Vocal4Local.`,
+    `Each ${category} by ${artisan} tells a story of tradition and skill — ${name} stands out as a masterpiece of local art.`,
+    `${artisan}'s ${name} showcases the perfect blend of creativity and craftsmanship, keeping the ${category} culture alive.`,
+    `Locally produced by ${artisan}, ${name} is more than just a ${category} — it’s a celebration of India’s vibrant artisan spirit.`,
+    `${name}, created by ${artisan}, captures the soul of handmade excellence and promotes sustainable ${category} practices.`
+  ];
+
+  // Pick a random one
+  const randomIndex = Math.floor(Math.random() * templates.length);
+  return templates[randomIndex];
+}
+
+function displayProducts() {
+let search = searchInput.value.toLowerCase();
+let cat = categoryFilter.value;
+productList.innerHTML='';
+
+products.forEach((p,index)=>{
+if((p.name.toLowerCase().includes(search) || p.artisan.toLowerCase().includes(search)) &&
+(cat==''||p.category==cat)){
+const card=document.createElement('div');
+card.classList.add('card');
+card.innerHTML=`
+<img src="${p.image}" alt="${p.name}">
+<h3>${p.name}</h3>
+<p>Artisan: ${p.artisan}</p>
+<p>Price: ₹${p.price}</p>
+<p>Category: ${p.category}</p>
+<button class="favorite">${p.favorite?'★':'☆'}</button>
+<button class="edit">Edit</button>
+<button class="delete">Delete</button>
+`;
+productList.appendChild(card);
+const imgEl = card.querySelector('img');
+imgEl.addEventListener('click',()=>{ openModal(p.name,p.bio||generateBio(p.name,p.artisan,p.category)); });
+
+card.querySelector('.favorite').addEventListener('click',(e)=>{
+e.stopPropagation();
+p.favorite=!p.favorite;
+saveAndDisplay();
+});
+
+card.querySelector('.edit').addEventListener('click',(e)=>{
+e.stopPropagation();
+nameInput.value=p.name;
+artisanInput.value=p.artisan;
+priceInput.value=p.price;
+categoryInput.value=p.category;
+editIndexInput.value=index;
+document.querySelector('[data-tab="add"]').click();
+});
+
+card.querySelector('.delete').addEventListener('click',(e)=>{
+e.stopPropagation();
+if(confirm(`Delete "${p.name}"?`)){
+products.splice(index,1);
+saveAndDisplay();
+}
+});
+}
+});
+
+if(products.length>0){
+let f=products[Math.floor(Math.random()*products.length)];
+featured.innerText=`${f.name} by ${f.artisan} - ${f.category}`;
+}else featured.innerText='No products yet.';
+}
+function saveAndDisplay(){
+localStorage.setItem('products',JSON.stringify(products));
+displayProducts();
+}
+form.addEventListener('submit',e=>{
+e.preventDefault();
+const file = imageInput.files[0];
+const editIndex = editIndexInput.value;
+if(editIndex !== '' && !file){
+products[editIndex].name=nameInput.value;
+products[editIndex].artisan=artisanInput.value;
+products[editIndex].price=priceInput.value;
+products[editIndex].category=categoryInput.value;
+products[editIndex].bio=generateBio(nameInput.value, artisanInput.value, categoryInput.value);
+saveAndDisplay();
+form.reset(); editIndexInput.value=''; 
+document.querySelector('[data-tab="view"]').click();
+return;
+}
+
+if(!file){ alert("Please select an image."); return; }
+const reader = new FileReader();
+reader.onload=function(){
+const base64Image = reader.result;
+const newProduct = {
+name:nameInput.value,
+artisan:artisanInput.value,
+price:priceInput.value,
+category:categoryInput.value,
+image:base64Image,
+bio:generateBio(nameInput.value, artisanInput.value, categoryInput.value),
+favorite:false
+};
+if(editIndex===''){ products.push(newProduct); } 
+else { products[editIndex]=newProduct; }
+saveAndDisplay();
+form.reset(); editIndexInput.value='';
+document.querySelector('[data-tab="view"]').click();
+};
+reader.readAsDataURL(file);
+});
+searchInput.addEventListener('input',displayProducts);
+categoryFilter.addEventListener('change',displayProducts);
+const modal=document.getElementById('bioModal');
+function openModal(title,bio){ document.getElementById('modalTitle').innerText=title; document.getElementById('modalBio').innerText=bio; modal.style.display='flex'; }
+function closeModal(){modal.style.display='none';}
+displayProducts();
+</script>
+</body>
+</html>
